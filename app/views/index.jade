@@ -1,0 +1,20 @@
+extends layout
+
+block content
+  h1= title
+  p Welcome to #{title}
+  p
+      a(href="/bigcommerce/new-export") New Export
+
+  table(width='100%', class='grid_table', cellspacing='1')
+       tr
+           th CSV file
+           th Created at
+           th Download
+       each ex in exports_data
+           tr
+               td= ex.file_url
+               td= ex.created_at
+               td
+                   a(href="uploads/exports/" + ex.file_url, target='_blank') Download
+

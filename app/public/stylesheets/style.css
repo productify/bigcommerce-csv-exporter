@@ -1,0 +1,21 @@
+body {
+  padding: 20px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+  background-color: #ffffff;
+
+}
+
+a {
+  color: #00B7FF;
+}
+h1{
+    margin-top:0px;
+}
+.grid_table{
+    background-color: #cfcfcf;
+}
+.grid_table td, .grid_table th{
+   padding:10px;
+    background-color: #ffffff;
+    text-align: left;
+}

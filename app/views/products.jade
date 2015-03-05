@@ -1,0 +1,14 @@
+extends layout
+block content
+    h1 Products
+    table(border='1')
+        tr
+            each val, index in products[0]
+                th= index
+        each product in products
+            tr
+                each val, index in product
+                    if typeof val == 'string'
+                        td= val.substr(0,100)
+                    else
+                        td= val
