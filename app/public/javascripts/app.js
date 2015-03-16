@@ -20,7 +20,7 @@ function updateTime(){
         url: '/bigcommerce/update-time',
         data: data,
         success: function(){
-            alert("Yay is saved");
+            alert("Successfully updated selected export schedule.");
         }
     });
 }
