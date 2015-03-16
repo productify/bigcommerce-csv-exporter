@@ -28,11 +28,6 @@ var secureCompare = function(str1, str2){
 };
 
 module.exports = {
-
-    store_hash : null,
-
-    bigcommerce_token: null,
-
     /***
      * Get Token from big commerce
      *
@@ -59,7 +54,7 @@ module.exports = {
         }, function(err, response, body){
             if(err) return cb(err);
 
-            console.log(response.statusCode);
+
 
             if(response.statusCode == 200){
                 console.log(body);
@@ -122,270 +117,174 @@ module.exports = {
 
             if(!bt) return cb('Token not found');
 
-//            self.store_hash = bt.store_hash;
-//            self.bigcommerce_token = bt.access_token;
-
             return cb(null, bt);
         });
     },
-
-    /***
-     *
-     * @param method
-     * @param resource
-     */
-    request : function(method, resource, data, cb){
-
-        var fun, self = this;
-
-        switch(method.toLowerCase()){
-            case 'post':
-                fun = request.post;
-                break;
-            case 'get':
-                fun = request.get;
-                break;
-            case 'del':
-            case 'delete':
-                fun = request.del;
-                break;
-            case 'put':
-                fun = request.put;
-                break;
-        }
+    getResourceByUrl : function(sess, url, cb){
+        var self = this;
 
         var options = {
             'headers':{
                 'X-Auth-Client': client_id,
-                'X-Auth-Token': this.bigcommerce_token,
-                'content-type': 'application/json',
+                'X-Auth-Token': sess.data.bigcommerce_token,
                 'Accept': 'application/json'
             },
             'timeout': 300000
         };
 
-        if(data){
-            options.body = JSON.stringify(data);
-        }
-
-        fun('https://api.bigcommerce.com/stores/' + self.store_hash + '/v2/' + resource, options
-            , function(err, response, body){
+        if(url){
+            request.get(url, options , function(err, response, body){
                 if(err) return cb(err);
 
+                console.log(url + ":" + response.statusCode);
+                console.log("x-bc-apilimit-remaining:" +  response.caseless.dict["x-bc-apilimit-remaining"]);
+
+                if(response.caseless.dict["x-bc-apilimit-remaining"] == 0){
+                    setTimeout(function() {
+                        self.getResourceByUrl(sess, url);
+                    }, 30000);
+                }
+
+                if(response.statusCode == 409){
+                    setTimeout(function() {
+                        self.getResourceByUrl(sess, url);
+                    }, response.caseless.dict["X-Retry-After"] * 1000);
+                }
 
                 if([200, 201, 202, 204].indexOf(response.statusCode) > -1){
                     if(response.statusCode == 204) return cb();
 
                     try{
                         return cb(null, JSON.parse(body));
+
                     }catch(e){
                         console.error('JSON.parse ' + e.message);
                         return cb();
                     }
                 }else{
-                    return cb('Wrong response from big commerce: ' + response.statusCode + '[' + body + ']' + resource);
+                    return cb('3. Wrong response from big commerce: ' + response.statusCode + '[' + body + ']');
                 }
             });
-    },
-    getProducts : function(limit, page, cb){
+        }
+        else{
+            return cb();
+        }
 
-        var fun, self = this;
-        fun = request.get;
-
-        var options = {
-            'headers':{
-                'X-Auth-Client': client_id,
-                'X-Auth-Token': this.bigcommerce_token,
-                'Accept': 'application/json'
-            },
-            'timeout': 300000
-        };
-
-        fun('https://api.bigcommerce.com/stores/' + self.store_hash + '/v2/products/?limit='+ limit +'&page=' + page, options
-            , function(err, response, body){
-                if(err) return cb(err);
-                return cb(null, JSON.parse(body));
-            });
-    },
-    getProductsCount : function(sess, cb){
-
-        console.log(sess);
-
-        var self = this;
-
-        var options = {
-            'headers':{
-                'X-Auth-Client': client_id,
-                'X-Auth-Token': sess.cookie.bigcommerce_token,
-                'Accept': 'application/json'
-            },
-            'timeout': 300000
-        };
-
-        request.get('https://api.bigcommerce.com/stores/' + sess.store_hash + '/v2/products/count', options
-            , function(err, response, body){
-                if(err) return cb(err);
-
-                console.log("++++++++++++++++++++++++++++++++");
-                console.log("Total product count" + body);
-                console.log("++++++++++++++++++++++++++++++++");
-
-                return cb(null, JSON.parse(body));
-            });
-    },
-    getResourceByUrl : function(url, cb){
-        var self = this;
-
-        var options = {
-            'headers':{
-                'X-Auth-Client': client_id,
-                'X-Auth-Token': this.bigcommerce_token,
-                'Accept': 'application/json'
-            },
-            'timeout': 300000
-        };
-
-        request.get(url, options
-            , function(err, response, body){
-                if(err) return cb(err);
-
-                if(body){
-                    return cb(null, JSON.parse(body));
-                }
-                else{
-                    return cb(null);
-                }
-            });
     },
 
-    getBrand: function(product, cb){
+    getBrand: function(sess, product, cb){
         var self = this;
 
         if(!product.brand) return cb();
 
-        self.getResourceByUrl(product.brand.url, function(err, resource_data){
+        console.log("Requesting " + product.brand.url);
+        self.getResourceByUrl(sess, product.brand.url, function(err, resource_data){
             if(err) return cb(err);
 
             if(resource_data && resource_data.name){
                 product.brand = resource_data.name;
             }
-            return cb();
-        });
-    },
-
-    getImages: function(product, cb){
-        var self = this;
-
-        if(!product.images) return cb();
-
-        self.getResourceByUrl(product.images.url, function(err, resource_data){
-            if(err) return cb(err);
-
-            for(var i = 0 ; i < resource_data.length; i++){
-                product['image_' + (i+1)] = resource_data[i].zoom_url;
+            else{
+                product.brand = '';
             }
-            product.images = null;
 
             return cb();
         });
     },
 
-    getSKUs: function(product, cb){
+    getImages: function(sess, all_products, cb){
         var self = this;
 
-        if(!product.skus) return cb();
+        async.eachLimit(all_products, 5,  function(product, callback){
+            if(!product.images || !product.images.url) return callback();
 
-        self.getResourceByUrl(product.skus.url, function(err, resource_data){
-            if(err) return cb(err);
-            var skus = [];
-            if(resource_data && resource_data.length > 0){
-                for(var i = 0; i < resource_data.length; i++){
-                    skus[i] = {};
-                    skus[i].sku =  resource_data[i].sku;
-                    skus[i].cost_price =  resource_data[i].cost_price;
-                    skus[i].upc =  resource_data[i].upc;
-                    skus[i].inventory_level =  resource_data[i].inventory_level;
-                }
-            }
-            product.skus = skus;
+            self.getResourceByUrl(sess, product.images.url, function(err, images){
+                if(err) return callback(err);
 
-            return cb();
-        });
-    },
+                if(images && images.length){
+                    console.log(images.length);
 
-    getCategories: function(product, cb){
-        var self = this;
-
-        if(!product.categories.length) return cb();
-
-        var categories = "";
-        async.forEach(product.categories, function(category, callback){
-            self.getResourceByUrl('https://api.bigcommerce.com/stores/' + self.store_hash + '/v2/categories/' + category, function(err, resource_data){
-                if(err) return cb(err);
-
-                if(resource_data)
-                {
-                    if(categories == ''){
-                        categories = resource_data.name;
-                    }
-                    else{
-                        categories = categories + "," + resource_data.name;
+                    for(var i = 0 ; i < images.length; i++){
+                        product['image_' + (i+1)] = images[i].zoom_url;
                     }
                 }
                 return callback();
             });
         }, function(err){
-            product.categories = categories;
-            return cb();
+            if(err) return cb(err);
+
+            return cb(null, all_products);
         });
     },
 
-    getAdditionalData: function(all_products, cb){
+    getSKUs: function(sess, all_products, cb){
         var self = this;
-        //var final_products = [];
 
-        async.forEach(all_products, function(product, callback){
-            product.primary_image = product.primary_image.zoom_url;
-            product.discount_rules = null;
-            product.downloads = null;
-            product.tax_class = null;
-            product.rules = null;
-            product.option_set = null; //Todo: Need to handle option_set
-            product.options = null; //Todo: Need to handle options
-            product.configurable_fields = null;
-            product.custom_fields = null;
-            product.videos = null;
+        var all_products_with_sku = [];
 
-            self.getBrand(product, function(){
-                self.getImages(product, function(){
-                    self.getSKUs(product, function(){
-                        self.getCategories(product, function(){
-                            return callback();
-                        })
-                    });
-                });
+        async.eachLimit(all_products, 5,  function(product, callback){
+            if(!product.skus) return callback();
+
+            self.getResourceByUrl(sess, product.skus.url, function(err, resource_data){
+                if(err) return callback(err);
+
+                var skus = [];
+                product.skus = [];
+                if(resource_data && (resource_data.length > 0)){
+                    for(var i = 0; i < resource_data.length; i++){
+                        skus[i] = {};
+                        skus[i].sku =  resource_data[i].sku;
+                        skus[i].cost_price =  resource_data[i].cost_price;
+                        skus[i].upc =  resource_data[i].upc;
+                        skus[i].inventory_level =  resource_data[i].inventory_level;
+
+                        product.skus[i] = skus[i];
+                    }
+                    all_products_with_sku.push(product);
+                }
+
+
+
+
+                return callback();
             });
         }, function(err){
-            return cb()
+            if(err) return cb(err);
+
+            return cb(null, all_products_with_sku);
         });
-
-
     },
-    getHeaderFields: function(products){
+    getHeaderFields: function(all_products, cb){
+        console.log("Generating headers");
         var header_fields = [];
         var max_images = 0;
-        for(var property in products[0]){
-            property = property.toLowerCase();
 
-            if(property == 'skus'){
-                for(var prop in products[0].skus){
-                    header_fields.push(prop)
+        async.forEach(all_products, function(product, callback){
+
+            for(var property in product){
+                property = property.toLowerCase();
+
+                if(property == 'skus'){
+                    for(var prop in product.skus[0]){
+                        if(header_fields.indexOf(prop) == -1){
+                            header_fields.push(prop);
+                        }
+                    }
+                }
+                else {
+                    if(header_fields.indexOf(property) == -1){
+                        header_fields.push(property);
+                    }
                 }
             }
-            else{
-                header_fields.push(property);
-            }
-        }
+
+            return callback();
+
+        }, function(err){
+            if(err) return cb(err);
+
+            return cb(null, header_fields);
+        });
 
         return header_fields;
     },
@@ -400,42 +299,247 @@ module.exports = {
         }
         return product_row;
     },
-    getProductsData: function(products, header_fields){
+    getProductsData: function(all_products, header_fields, cb){
+
+        var self = this;
+
         var final_products = [];
 
-        for(var i = 0; i < products.length; i++){
-            var main_product_row = this.getMainProductRow(products[i], header_fields);
-            if(main_product_row){
-                if(main_product_row.sku){
-                    final_products.push(main_product_row);
+
+        async.forEach(all_products, function(product, callback){
+
+                var main_product_row = self.getMainProductRow(product, header_fields);
+                if(main_product_row){
+                    if(main_product_row.sku){
+                        final_products.push(main_product_row);
+                    }
                 }
-            }
 
-            for(var property in products[i]){
-                property = property.toLowerCase();
+                for(var property in product){
+                    property = property.toLowerCase();
 
-                if(property == 'skus'){
-                    for(var j = 0; j < products[i][property].length; j++){
-                        var product_row = this.getMainProductRow(products[i], header_fields);
+                    if(property == 'skus'){
+                        for(var j = 0; j < product[property].length; j++){
+                            var product_row = self.getMainProductRow(product, header_fields);
 
-                        for(var prop in products[i][property][j]){
-                            prop = prop.toLowerCase();
+                            for(var prop in product[property][j]){
+                                prop = prop.toLowerCase();
 
-                            for(var k = 0; k < header_fields.length; k++){
-                                if((header_fields[k] == prop)){
-                                    if(products[i][property][j][prop] != ""){
-                                        product_row[prop] = products[i][property][j][prop]?products[i][property][j][prop]:"";
+                                for(var k = 0; k < header_fields.length; k++){
+                                    if((header_fields[k] == prop)){
+                                        if(product[property][j][prop] != ""){
+                                            product_row[prop] = product[property][j][prop]?product[property][j][prop]:"";
+                                        }
                                     }
                                 }
                             }
+                            if(product_row.sku){
+                                final_products.push(product_row);
+                            }
                         }
-                        if(product_row.sku){
-                            final_products.push(product_row);
+                    }
+                }
+            return callback();
+        }, function(err){
+            if(err) return cb(err);
+
+            return cb(null, final_products);
+        });
+    },
+    updateTime: function(sess, store_data, cb){
+        BigcommerceToken.findOne({ where: {
+            user_id: sess.user_id,
+            deleted: false
+        }}, function(err, store){
+            if(err) return cb(err);
+
+            if(!store) return cb('Invalid token');
+
+            store.hour = store_data.hour;
+            store.min = store_data.min;
+
+            store.save(function(err){
+                if(err) return cb(err);
+
+                return cb(null, store);
+            });
+
+        });
+    },
+    storeDetails: function(user_id, cb){
+        BigcommerceToken.findOne({ where: {
+            user_id: user_id,
+            deleted: false
+        }}, function(err, store){
+            if(err) return cb(err);
+
+
+
+            if(!store) return cb('Invalid token');
+
+            store.save(function(err){
+                if(err) return cb(err);
+
+                return cb(null, store);
+            });
+
+        });
+    },
+    updateFeedUrl: function(sess, feed_url, cb){
+
+        BigcommerceToken.findOne({ where: {
+            user_id: sess.data.user_id,
+            deleted: false
+        }}, function(err, store){
+            if(err) return cb(err);
+
+            if(!store) return cb('Invalid token');
+
+            store.feed_url = feed_url;
+
+            store.save(function(err){
+                if(err) return cb(err);
+
+                return cb(null, store);
+            });
+
+        });
+    },
+    getBrands: function(sess, all_products, cb){
+        var self = this;
+        self.getResourceByUrl(sess, 'https://api.bigcommerce.com/stores/' + sess.data.store_hash + '/v2/brands?limit=250', function(err, brands){
+            if(err) return cb(err);
+
+            if(brands)
+            {
+                for(var i = 0 ; i < all_products.length; i++){
+                    for(var j = 0; j < brands.length; j++){
+                        //Get brand id
+
+                        if(all_products[i].brand && all_products[i].brand.resource){
+                            var resource = all_products[i].brand.resource;
+                            var slash_index = resource.lastIndexOf("/")
+                            var brand_id = resource.substring(slash_index + 1);
+
+                            if(brand_id == brands[j].id){
+                                all_products[i].brand = brands[j].name;
+                            }
                         }
+                    }
+
+                    if(all_products[i].brand.resource){
+                        all_products[i].brand = '';
+                    }
+                }
+            }
+            return cb(null, all_products);
+        });
+    },
+    getCategories: function(sess, all_products, cb){
+        var self = this;
+        self.getResourceByUrl(sess, 'https://api.bigcommerce.com/stores/' + sess.data.store_hash + '/v2/categories?limit=250', function(err, categories){
+            if(err) return cb(err);
+
+            if(categories)
+            {
+                for(var i = 0 ; i < all_products.length; i++){
+
+                    var cat_arr = all_products[i].categories.slice();
+
+                    for(var j = 0; j < categories.length; j++){
+                           for(var k = 0; k < cat_arr.length; k++){
+                               if(cat_arr[k] == categories[j].id){
+
+                                   if(k == 0){
+                                       all_products[i].categories =  categories[j].name;
+                                   }
+                                   else{
+                                       all_products[i].categories =  all_products[i].categories + ', ' + categories[j].name;
+                                   }
+
+                               }
+                           }
+                    }
+
+                }
+            }
+            return cb(null, all_products);
+        });
+    },
+    cleanFields: function(all_products, cb){
+        var clean_products = [];
+        for(var i = 0; i < all_products.length; i++){
+            clean_products[i] = {};
+            for(var property in all_products[i]){
+
+                if(
+                    (property != 'id') &&
+                    (property != 'keyword_filter') &&
+                    (property != 'type') &&
+                    (property != 'cost_price') &&
+                    (property != 'sort_order') &&
+                    (property != 'related_products') &&
+                    (property != 'tax_class') &&
+                    (property != 'rules') &&
+                    (property != 'option_set') &&
+                    (property != 'options') &&
+                    (property != 'configurable_fields') &&
+                    (property != 'custom_fields') &&
+                    (property != 'videos') &&
+                    (property != 'rating_total') &&
+                    (property != 'rating_count') &&
+                    (property != 'total_sold') &&
+                    (property != 'date_created') &&
+                    (property != 'view_count') &&
+                    (property != 'meta_keywords') &&
+                    (property != 'meta_description') &&
+                    (property != 'layout_file') &&
+                    (property != 'is_price_hidden') &&
+                    (property != 'price_hidden_label') &&
+                    (property != 'date_modified') &&
+                    (property != 'event_date_field_name') &&
+                    (property != 'event_date_type') &&
+                    (property != 'event_date_start') &&
+                    (property != 'event_date_end') &&
+                    (property != 'myob_asset_account') &&
+                    (property != 'myob_income_account') &&
+                    (property != 'myob_expense_account') &&
+                    (property != 'peachtree_gl_account') &&
+                    (property != 'is_condition_shown') &&
+                    (property != 'preorder_release_date') &&
+                    (property != 'is_preorder_only') &&
+                    (property != 'preorder_message') &&
+                    (property != 'order_quantity_minimum') &&
+                    (property != 'order_quantity_maximum') &&
+                    (property != 'open_graph_type') &&
+                    (property != 'open_graph_title') &&
+                    (property != 'open_graph_description') &&
+                    (property != 'is_open_graph_thumbnail') &&
+                    (property != 'avalara_product_tax_code') &&
+                    (property != 'date_last_imported') &&
+                    (property != 'tax_class_id') &&
+                    (property != 'option_set_display') &&
+                    (property != 'bin_picking_number') &&
+                    (property != 'downloads') &&
+                    (property != 'discount_rules') &&
+                    (property != 'configurable_fields') &&
+                    (property != 'resource') &&
+                    (property != 'rules') &&
+                    (property != 'tax_class') &&
+                    (property != 'discount_rules') &&
+                    (property != 'images') &&
+                    (property != 'option_set_id')
+                    ){
+
+                    if(property == 'primary_image'){
+                        clean_products[i][property] =  all_products[i].primary_image.zoom_url;
+                    }
+                    else{
+                       clean_products[i][property] = all_products[i][property];
                     }
                 }
             }
         }
-        return final_products;
+        return cb(null, clean_products);
     }
 };

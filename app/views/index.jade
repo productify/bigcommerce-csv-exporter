@@ -1,20 +1,24 @@
 extends layout
 
 block content
+  div#overlay(class="loading-overlay") Exporting products...
   h1= title
   p Welcome to #{title}
   p
-      a(href="/bigcommerce/new-export") New Export
+      button(onClick="newExport('"+ store_details.store_hash +"')") Export new feed
 
-  table(width='100%', class='grid_table', cellspacing='1')
-       tr
-           th CSV file
-           th Created at
-           th Download
-       each ex in exports_data
-           tr
-               td= ex.file_url
-               td= ex.created_at
-               td
-                   a(href="uploads/exports/" + ex.file_url, target='_blank') Download
+  select#hour
+    -for (var x = 0; x < 24; x++)
+        option(selected= store_details.hour == x)=x
 
+  select#min
+    -for (var x = 0; x < 60; x = x + 5)
+        option(selected= store_details.min == x)=x
+
+  div
+     input(type="submit", value="Update schedule time", onClick="updateTime()")
+
+
+
+  div(class="feed-url")
+     p='http://localhost:8000/' + store_details.feed_url

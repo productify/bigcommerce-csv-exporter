@@ -40,7 +40,7 @@ ExportHistory.addHistory = function(export_data, cb){
 };
 
 ExportHistory.getList = function(user_id, cb){
-    ExportHistory.all({where: {user_id: user_id, deleted: false}}, function(err, eh){
+    ExportHistory.all({where: {user_id: user_id, deleted: false}, order:'id DESC'}, function(err, eh){
         if(err) return cb(err);
 
         return cb(err, eh)

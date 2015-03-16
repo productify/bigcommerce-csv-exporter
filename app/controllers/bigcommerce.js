@@ -1,9 +1,14 @@
 var Bigcommerce = require('../models/bigcommerce');
+
+var BigcommerceToken = require('../models/bigcommerce_token');
+
+
 var ExportHistory = require('../models/export_history');
 var config = require('../config/env/all')
 var async = require('async')
-var fs = require('fs');
-var json2csv = require('json2csv');
+
+var ImportProductsTask = require('../models/tasks/import_products_task');
+
 
 var limit = config.bigcommerce.limit;
 
@@ -12,14 +17,10 @@ var limit = config.bigcommerce.limit;
  * @param res
  */
 var gotoIndex = function(req, res){
-
-    req.session.cookie.expires = false;
-
-//    res.redirect('/');
-
     res.writeHead(302, {
-        Location:  '/bigcommerce/'
+        Location:  '/bigcommerce/index'
     });
+
     res.end();
 };
 
@@ -52,14 +53,11 @@ module.exports.load = function(req, res, next){
                 return res.send(500, { error: err });
             }
 
-            var sess = req.session.cookie
+            var sess = req.session
 
             sess.bigcommerce_token =  bt.access_token;
             sess.store_hash = bt.store_hash;
             sess.user_id = bt.user_id;
-
-            console.log("Session info");
-            console.log(req.session);
 
             gotoIndex(req, res);
         });
@@ -96,85 +94,85 @@ module.exports.uninstall = function(req, res, next){
 }
 
 module.exports.getList = function(req, res, next){
-
-    console.log("Session info before export listing");
     console.log(req.session);
+    console.log("+++++++++++++++++++++++++");
 
-    ExportHistory.getList(req.session.cookie.user_id, function(err, exports_data){
-        if(err){
-            return res.send(500, { error: err });
-        }
-
-        res.render('index', {
-            title: 'CSV Exporter',
-            exports_data: exports_data
+    if(req.session && req.session.user_id){
+        ExportHistory.getList(req.session.user_id, function(err, exports_data){
+            if(err){
+                return res.send(500, { error: err });
+            }
+            res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+            res.header('Expires', '-1');
+            res.header('Pragma', 'no-cache');
+            
+            res.render('index', {
+                title: 'CSV Exporter',
+                exports_data: exports_data
+            });
         });
-    });
+    }
+}
+
+
+module.exports.storeDetails = function(req, res, next){
+
+    if(req.session && req.session.user_id){
+        Bigcommerce.storeDetails(req.session.user_id, function(err, store_details){
+            if(err){
+                return res.send(500, { error: err });
+            }
+            res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+            res.header('Expires', '-1');
+            res.header('Pragma', 'no-cache');
+
+
+            console.log(store_details);
+
+            res.render('index', {
+                title: 'CSV Exporter',
+                store_details: store_details
+            });
+        });
+    }
 }
 
 
 module.exports.newExport = function(req, res, next){
-    var sess = req.session;
-    Bigcommerce.getProductsCount(sess, function(err, product_count){
-         var count = product_count.count;
 
-         var pages = parseInt(count / limit);
-         if(count % limit != 0){
-             pages++;
-         }
-        var all_products = [];
+    BigcommerceToken.findOne({ where: {
+        store_hash: req.params.store_hash,
+        deleted: false
+    }}, function(err, store){
+        if(err)  return res.send(500, { error: err });
 
-        var pages_array = [];
-        for(var i = 1; i <= pages; i++){
-            pages_array.push(i);
+        if(!store) return res.send(500, { error: err });
+
+        var sess = {
+            bigcommerce_token: store.access_token,
+            store_hash: store.store_hash,
+            user_id: store.user_id
         }
 
-        var all_products = [];
+        if(sess.bigcommerce_token){
+            var task = new ImportProductsTask();
 
-        async.forEach(pages_array, function(page, callback){
-            Bigcommerce.getProducts(limit, page, function(err, products){
-                if(err) return callback(err);
-
-                if(all_products.length > 0) {
-                    all_products.concat(products);
-                }
-                else {
-                    all_products = products;
-                }
-                callback();
+            task.send(sess, function(){
+                return res.send(200, {});
             });
-        }, function(err){
-            if(err) return next(err);
+        }
+        else{
+            return cb('Bigcommerce token missing. Please try refreshing page');
+        }
 
-            Bigcommerce.getAdditionalData(all_products, function(err){
-                if(err){
-                    return res.send(500, { error: err });
-                }
+    });
+}
 
-                var header_fields  = Bigcommerce.getHeaderFields(all_products);
-
-                var products_data = Bigcommerce.getProductsData(all_products, header_fields);
-
-
-                json2csv({data: products_data, fields: header_fields}, function(err, csv) {
-                    if (err) console.log(err);
-                    var date = new Date();
-
-                    var export_data = {
-                        user_id: sess.user_id,
-                        file_url: Math.random().toString(36).replace(/[^a-z]+/g, '').substr(0, 36) + '.csv'
-                    }
-                    fs.writeFile('uploads/exports/' + export_data.file_url, csv, function(err) {
-                        if (err) throw err;
-
-                        ExportHistory.addHistory(export_data, function(err){
-                            if(err){
-                                return res.send(500, { error: err });
-                            }
-                        });
-                    });
-                });
-            });
-        });
+module.exports.updateTime = function(req, res, next){
+    Bigcommerce.updateTime(req.session, req.body, function(err, store){
+        if(err){
+            return res.send(500, { error: err }).end();
+        }
+        gotoIndex(req, res);
     });
 }

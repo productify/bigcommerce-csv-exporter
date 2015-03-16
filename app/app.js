@@ -1,3 +1,5 @@
+'use strict';
+
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
@@ -27,6 +29,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+
 app.use(session({
     genid: function(req) {
         return uuid.v4() // use UUIDs for session IDs
@@ -34,10 +37,15 @@ app.use(session({
     secret: 'bigcommerce-csv-exporter-tool',
     cookie: {
         maxAge: 1000 * 60 * 60 * 24 * 30 * 12
-    }
-}))
+    },
+    resave: true,
+    saveUninitialized: true
+}));
 
-app.use('/', routes);
+
+
+
+//app.use('/', routes);
 app.use('/bigcommerce', bigcommerce);
 
 // catch 404 and forward to error handler
