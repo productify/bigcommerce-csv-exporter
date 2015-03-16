@@ -12,8 +12,8 @@ function newExport(store_hash){
 
 function updateTime(){
     var data  = {};
-    data["hour"] = $("#hour").val();
-    data["min"] = $("#min").val();
+    data["hour"] = $('input[name=hour]:checked').val();
+    data["min"] = 0;
 
     $.ajax({
         type: "POST",
@@ -24,3 +24,11 @@ function updateTime(){
         }
     });
 }
+
+$(document).ready(function(){
+    var $hours = $('input:radio[name=hour]');
+    if($hours.is(':checked') === false) {
+        var $selected_hour = $(".hour_table").data("hour");
+        $hours.filter('[value='+ $selected_hour +']').prop('checked', true);
+    }
+});

@@ -41,6 +41,7 @@ method.send = function(data, cb){
  * @param cb
  */
 method.run = function(sess, cb){
+
     console.log("Export has started");
 
     var self = this;
@@ -130,7 +131,12 @@ method.run = function(sess, cb){
                                                     if (err) return cb(err);
                                                     var date = new Date();
 
-                                                    var feed_url ='uploads/exports/feed.csv';
+                                                    var feed_directory = 'uploads/exports/'+ sess.data.bigcommerce_token;
+
+                                                    if (!fs.existsSync('public/' + feed_directory)){
+                                                        fs.mkdirSync('public/' + feed_directory);
+                                                    }
+                                                    var feed_url = feed_directory +'/feed.csv';
 
                                                     console.log("Writing CSV to file");
                                                     fs.writeFile('public/' +  feed_url, csv, function(err) {
@@ -157,44 +163,6 @@ method.run = function(sess, cb){
                             });
                         });
                     });
-
-//                Bigcommerce.getAdditionalData(sess, all_products, function(err){
-//                    if(err){
-//                        return cb(err);
-//                    }
-//
-//
-//
-//                    var header_fields  = Bigcommerce.getHeaderFields(all_products);
-//
-//                    var products_data = Bigcommerce.getProductsData(all_products, header_fields);
-//
-//
-//                    console.log("Converting json data to CSV");
-//                    json2csv({data: products_data, fields: header_fields}, function(err, csv) {
-//                        if (err) return cb(err);
-//                        var date = new Date();
-//
-//                        var feed_url ='uploads/exports/feed.csv';
-//
-//                        console.log("Writing CSV to file");
-//                        fs.writeFile('public/' +  feed_url, csv, function(err) {
-//                            if (err) throw err;
-//
-//                            Bigcommerce.updateFeedUrl(sess, 'public/' +  feed_url, function(err){
-//                                if(err){
-//                                    return cb(err);
-//                                }
-//
-//                                console.log("++++++++++++++++++++++++");
-//                                console.log("Export finished");
-//                                console.log("++++++++++++++++++++++++");
-//                                return cb(null);
-//
-//                            });
-//                        });
-//                    });
-//                });
             });
         }
     });

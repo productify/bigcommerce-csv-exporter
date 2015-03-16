@@ -49,6 +49,18 @@ input[type="submit"]{
     margin:15px 0px;
 }
 .feed-url{
-    font-size: 30px;
-    text-align: center;
+    font-size: 20px;
+}
+.export_new{
+    padding: 5px 15px;
+    background-color: #000000;
+    color: #ffffff;
+    font-weight: bold;
+    border-radius: 3px;
+    border: 1px solid #000;
+    font-size: 16px;
+    float:right;
+}
+.hour_table td{
+    padding:10px;
 }

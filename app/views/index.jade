@@ -3,17 +3,47 @@ extends layout
 block content
   div#overlay(class="loading-overlay") Exporting products...
   h1= title
+      button(class="export_new", onClick="newExport('"+ store_details.store_hash +"')") Export new feed
   p Welcome to #{title}
-  p
-      button(onClick="newExport('"+ store_details.store_hash +"')") Export new feed
 
-  select#hour
-    -for (var x = 0; x < 24; x++)
-        option(selected= store_details.hour == x)=x
+  p This will run every day. Please select a time you want to run this export.
 
-  select#min
-    -for (var x = 0; x < 60; x = x + 5)
-        option(selected= store_details.min == x)=x
+  table(class="hour_table" data-hour=store_details.hour)
+      tr
+        td <input type="radio" name="hour" value="0"/> 12AM
+        td <input type="radio" name="hour" value="1"/> 1AM
+        td <input type="radio" name="hour" value="2"/> 2AM
+        td <input type="radio" name="hour" value="3"/> 3AM
+
+      tr
+        td <input type="radio" name="hour" value="4"/> 4AM
+        td <input type="radio" name="hour" value="5"/> 5AM
+        td <input type="radio" name="hour" value="6"/> 6AM
+        td <input type="radio" name="hour" value="7"/> 7AM
+
+      tr
+        td <input type="radio" name="hour" value="8"/> 8AM
+        td <input type="radio" name="hour" value="9"/> 9AM
+        td <input type="radio" name="hour" value="10"/> 10AM
+        td <input type="radio" name="hour" value="11"/> 11AM
+
+      tr
+        td <input type="radio" name="hour" value="12"/> 12PM
+        td <input type="radio" name="hour" value="13"/> 1PM
+        td <input type="radio" name="hour" value="14"/> 2PM
+        td <input type="radio" name="hour" value="15"/> 3PM
+
+      tr
+        td <input type="radio" name="hour" value="16"/> 4PM
+        td <input type="radio" name="hour" value="17"/> 5PM
+        td <input type="radio" name="hour" value="18"/> 6PM
+        td <input type="radio" name="hour" value="19"/> 7PM
+
+      tr
+        td <input type="radio" name="hour" value="20"/> 8PM
+        td <input type="radio" name="hour" value="21"/> 9PM
+        td <input type="radio" name="hour" value="22"/> 10PM
+        td <input type="radio" name="hour" value="23"/> 11PM
 
   div
      input(type="submit", value="Update schedule time", onClick="updateTime()")
@@ -21,4 +51,4 @@ block content
 
 
   div(class="feed-url")
-     p='http://localhost:8000/' + store_details.feed_url
+     p='Feed URL: http://localhost:8000/' + store_details.feed_url

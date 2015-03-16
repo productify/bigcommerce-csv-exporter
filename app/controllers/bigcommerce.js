@@ -18,7 +18,7 @@ var limit = config.bigcommerce.limit;
  */
 var gotoIndex = function(req, res){
     res.writeHead(302, {
-        Location:  '/bigcommerce/index'
+        Location:  '/bigcommerce/'
     });
 
     res.end();
@@ -116,7 +116,6 @@ module.exports.getList = function(req, res, next){
 
 
 module.exports.storeDetails = function(req, res, next){
-
     if(req.session && req.session.user_id){
         Bigcommerce.storeDetails(req.session.user_id, function(err, store_details){
             if(err){

@@ -5,7 +5,7 @@ var bigcommerce = require('../controllers/bigcommerce');
 
 /* GET home page. */
 
-router.get('/index', bigcommerce.storeDetails);
+router.get('/', bigcommerce.storeDetails);
 router.get('/auth', bigcommerce.auth);
 router.get('/load', bigcommerce.load);
 router.get('/uninstall', bigcommerce.uninstall);
